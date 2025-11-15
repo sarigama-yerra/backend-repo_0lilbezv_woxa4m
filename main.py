@@ -1,8 +1,13 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import ValidationError
+from typing import Any, Dict
 
-app = FastAPI()
+from database import create_document
+from schemas import Contact
+
+app = FastAPI(title="Renda Extra com Salame Artesanal API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -63,6 +68,20 @@ def test_database():
     response["database_name"] = "✅ Set" if os.getenv("DATABASE_NAME") else "❌ Not Set"
     
     return response
+
+@app.post("/api/contact")
+def create_contact(payload: Dict[str, Any]):
+    """Captura mensagens do formulário e salva no MongoDB (collection: contact)"""
+    try:
+        contact = Contact(**payload)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors())
+
+    try:
+        inserted_id = create_document("contact", contact)
+        return {"status": "ok", "id": inserted_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
